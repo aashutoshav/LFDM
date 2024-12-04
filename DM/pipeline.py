@@ -196,6 +196,16 @@ def main():
     attention_fake.to(device_secondary)
     attention_fake.optim = torch.optim.Adam(attention_fake.parameters(),
                                                    lr=lr, betas=adam_betas)
+    
+    attention_self = TransformerEncoderSA(device)
+    attention_self.to(device)
+    attention_self.optim = torch.optim.Adam(attention_self.parameters(),
+                                                   lr=lr, betas=adam_betas)
+    
+    attention_cross = TransformerEncoderSA(device)
+    attention_cross.to(device_secondary)
+    attention_cross.optim = torch.optim.Adam(attention_cross.parameters(),
+                                                    lr=lr, betas=adam_betas)
 
     # Not set model to be train mode! Because pretrained flow autoenc need to be eval (BatchNorm)
 
@@ -248,7 +258,19 @@ def main():
             x = attention_fake(x, y)
             x = x.to(device)
             z = z.to(device)
-            x = attention_real(x, z)         
+            x = attention_real(x, z)
+            
+            x, y, z = ref_imgs, fake_vids[:,:,0,:,:], real_vids[:,:,0,:,:]
+            x, y, z = x.flatten(1), y.flatten(1), z.flatten(1)
+            
+            x = x.to(device)
+            y = y.to(device)
+            x = attention_self(x, x)
+            
+            x = x.to(device_secondary)
+            z = z.to(device_secondary)
+            
+            x = attention_cross(x, z)
 
             ref_imgs = x.view(BATCH_SIZE,3,128,128)
             model.set_train_input(ref_imgs,fake_vids,"")
